@@ -13,7 +13,7 @@
 __Permabuffs is a plugin built for Terraria servers running on **[tShock](https://github.com/Pryaxis/TShock)**.__
 
 ## Download Link
-Download the `Permabuffs.dll` file {placeholder} and drop it in your `ServerPlugins` folder. Then start your server as you normally would. Make sure you grant the proper [Permissions](Permissions)
+Download the `Permabuffs.dll` file [here](https://github.com/SyntaxVoid/Permabuffs/releases/latest) and drop it in your `ServerPlugins` folder. Then start your server as you normally would. Make sure you grant the proper [Permissions](Permissions)!
 
 ## Features
 Store 30 of a buff potions in your piggybank to unlock a *permanent* version of that potion that will periodically and automatically refresh on your character. This plugin is compatible with tShock v4.3 and up *(and maybe earlier versions, too)...*
