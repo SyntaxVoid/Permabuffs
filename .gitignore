@@ -1,3 +1,5 @@
-bin/
-obj
-.vscode
+.vscode/
+
+Permabuffs/bin/
+Permabuffs/obj/
+
