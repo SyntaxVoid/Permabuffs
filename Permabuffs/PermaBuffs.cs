@@ -15,14 +15,12 @@ namespace Permabuffs
                                         + "piggy bank to unlock a "
                                         + "permanent version of the buff!";
     public override string Name => "Permabuffs";
-    public override Version Version => new Version(1, 0, 0, 0);
+    public override Version Version => new Version(1, 1, 1, 0);
   
     private static bool ssc_enabled;
     private static Timer refresh_timer;
 
-    /// <Summary>
-    /// Wish I knew what exactly this means #hehe #oops
-    /// </Summary>
+
     public Permabuffs(Main game) : base(game)
     {
       base.Order = 1;
@@ -68,7 +66,16 @@ namespace Permabuffs
     public void OnInitialize(EventArgs args)
     {
       NameToBuffIDs.PopulateBuffIDs();
-      ssc_enabled = TShock.ServerSideCharacterConfig.Enabled;
+      Version cur = TShock.VersionNum;
+      Version old = new Version("4.5"); 
+      if (cur.CompareTo(old) <= 0)
+      {
+        Console.WriteLine("[PermaBuffs]: Error - You are using an outdated TShock server.");
+        Console.WriteLine("[PermaBuffs]: To fix, either upgrade TShock or try the 1.0.0.0");
+        Console.WriteLine("[Permabuffs]: version of this plugin.");
+      }
+      ssc_enabled = TShock.ServerSideCharacterConfig.Settings.Enabled;
+      
       DB.Connect();
       
       refresh_timer = new Timer
