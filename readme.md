@@ -15,8 +15,10 @@ __Permabuffs is a plugin built for Terraria servers running on **[tShock](https:
 ## Download Link
 Download the `Permabuffs.dll` file [here](https://github.com/SyntaxVoid/Permabuffs/releases/latest) and drop it in your `ServerPlugins` folder. Then start your server as you normally would. Make sure you grant the proper Permissions!
 
+**TShock 6 (Terraria 1.4.5):** release v1.1.1 is built for TShock 4 and will not load on TShock 6. Until a TShock 6 release is published, build it with the .NET 9 SDK: `dotnet build Permabuffs/Permabuffs.csproj -c Release`, then copy `Permabuffs/bin/Release/net9.0/Permabuffs.dll` into `ServerPlugins`.
+
 ## Description
-Store 30 of a buff potions in your piggybank to unlock a *permanent* version of that potion that will periodically and automatically refresh on your character. This plugin is compatible with tShock v4.3 and up *(and maybe earlier versions, too)...* Limit yourself only to the buffs you need. Each character has a limit of 22 buffs and older buffs will be removed if this is exceeded
+Store 30 or more of a buff potion in your piggybank to unlock a *permanent* version of that potion that will periodically and automatically refresh on your character. This version is for TShock 6 (Terraria 1.4.5, .NET 9); release v1.1.1 is for tShock v4.3 and up. Limit yourself only to the buffs you need. Each character has a limit of 44 buffs (22 before Terraria 1.4.4) and older buffs will be removed if this is exceeded
 
 ## Commands
 - `pbenable`: Enables the permabuff feature for your character
@@ -185,6 +187,11 @@ Only one!
 - <img src="https://static.wikia.nocookie.net/terraria_gamepedia/images/a/a2/Shrimp_Po%27_Boy.png" alt="Shrimp Po Boy"> Shrimp Po Boy
 
 ## Updates
+### Unreleased: TShock 6
+- Builds against TShock 6.2.1 on .NET 9 (NuGet package `TShock`), with Microsoft.Data.Sqlite
+- A stack counts at 30 or more, since potions now stack to 9999
+- Stink Potion gives the Stinky buff
+- Buffs refresh on the game thread
 ### New in version 1.1.0
 - Permabuffs now checks for food items to apply food buffs
 

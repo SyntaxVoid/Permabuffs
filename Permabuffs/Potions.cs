@@ -45,7 +45,7 @@ namespace Permabuffs
       BuffIDs.Add("Shine Potion", 11);
       BuffIDs.Add("Sonar Potion", 122);
       BuffIDs.Add("Spelunker Potion", 9);
-      BuffIDs.Add("Stink Potion", 371);
+      BuffIDs.Add("Stink Potion", 120);
       BuffIDs.Add("Summoning Potion", 110);
       BuffIDs.Add("Swiftness Potion",  3);
       BuffIDs.Add("Thorns Potion", 14);

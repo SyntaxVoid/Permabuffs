@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Timers;
+using System.Diagnostics;
 using TShockAPI;
 using TShockAPI.Hooks;
 using Terraria;
@@ -18,7 +18,8 @@ namespace Permabuffs
     public override Version Version => new Version(1, 1, 1, 0);
   
     private static bool ssc_enabled;
-    private static Timer refresh_timer;
+    private static readonly TimeSpan refresh_interval = TimeSpan.FromSeconds(30);
+    private static readonly Stopwatch since_last_refresh = new Stopwatch();
 
 
     public Permabuffs(Main game) : base(game)
@@ -35,6 +36,7 @@ namespace Permabuffs
     {
       ServerApi.Hooks.GameInitialize.Register(this, OnInitialize);
       ServerApi.Hooks.NetGreetPlayer.Register(this, OnGreet);
+      ServerApi.Hooks.GameUpdate.Register(this, OnGameUpdate);
       AccountHooks.AccountDelete += OnAccountDelete;
       PlayerHooks.PlayerPostLogin += OnPostLogin;
       PlayerHooks.PlayerLogout += OnPostLogout;
@@ -51,6 +53,7 @@ namespace Permabuffs
       {
         ServerApi.Hooks.GameInitialize.Deregister(this, OnInitialize);
         ServerApi.Hooks.NetGreetPlayer.Deregister(this, OnGreet);
+        ServerApi.Hooks.GameUpdate.Deregister(this, OnGameUpdate);
         AccountHooks.AccountDelete -= OnAccountDelete;
         PlayerHooks.PlayerPostLogin -= OnPostLogin;
         PlayerHooks.PlayerLogout -= OnPostLogout;
@@ -60,8 +63,8 @@ namespace Permabuffs
 
     /// <Summary>
     /// Performs the initialization procedures and connects to the database
-    /// containing the Permabuff info. Schedules the rebuff method to run every
-    /// 30 seconds. Lasatly, creates the player commands to control permabuffs.
+    /// containing the Permabuff info, then creates the player commands to control
+    /// permabuffs. The 30 second rebuff runs from OnGameUpdate.
     /// </Summary>
     public void OnInitialize(EventArgs args)
     {
@@ -77,11 +80,8 @@ namespace Permabuffs
       ssc_enabled = TShock.ServerSideCharacterConfig.Settings.Enabled;
       
       DB.Connect();
-      
-      refresh_timer = new Timer
-        {Interval = 30000, AutoReset = true, Enabled = true};
-      refresh_timer.Elapsed += BuffRefresher;
-      
+      since_last_refresh.Start();
+
       Commands.ChatCommands.Add(new Command("pb.use", PBenable, "pbenable")
       {
         AllowServer=false,
@@ -135,12 +135,15 @@ namespace Permabuffs
     public void OnGreet(GreetPlayerEventArgs args)
     {
       TSPlayer player = TShock.Players[args.Who];
-      DB.NotLoggedInPermabuffStatus[player] = player.HasPermission("pb.use");
-      if (ssc_enabled)
+      if (player == null)
       {
         return;
       }
-      if (player == null)
+      lock (DB.Sync)
+      {
+        DB.NotLoggedInPermabuffStatus[player] = player.HasPermission("pb.use");
+      }
+      if (ssc_enabled)
       {
         return;
       }
@@ -160,11 +163,14 @@ namespace Permabuffs
     /// </Summary>
     public void OnPostLogin(PlayerPostLoginEventArgs args)
     {
-      DB.NotLoggedInPermabuffStatus.Remove(args.Player);
-      int userID = args.Player.Account.ID;
-      if (!DB.UserInDB(userID))
+      lock (DB.Sync)
       {
-        DB.AddNewUser(userID, args.Player.HasPermission("pb.use"));
+        DB.NotLoggedInPermabuffStatus.Remove(args.Player);
+        int userID = args.Player.Account.ID;
+        if (!DB.UserInDB(userID))
+        {
+          DB.AddNewUser(userID, args.Player.HasPermission("pb.use"));
+        }
       }
       SendInitialPBMessage(args.Player);
       RefreshPlayerBuffs(args.Player);
@@ -186,20 +192,30 @@ namespace Permabuffs
       {
         return;
       }
-      if (args.Player.IsLoggedIn)
+      // Never throw here: TShock's /logout saves the character after this hook returns.
+      try
       {
-        int userID = player.Account.ID;
-        if (DB.PermabuffStatus.ContainsKey(userID))
+        lock (DB.Sync)
         {
-          bool status = DB.PermabuffStatus[userID];
-          DB.UpdatePermabuffStatus(userID, status);
-          DB.PermabuffStatus.Remove(userID);
+          if (args.Player.IsLoggedIn)
+          {
+            int userID = player.Account.ID;
+            if (DB.PermabuffStatus.TryGetValue(userID, out bool status))
+            {
+              DB.UpdatePermabuffStatus(userID, status);
+              DB.PermabuffStatus.Remove(userID);
+            }
+          }
+          else
+          {
+            // Remove from the not logged in dict. No need to save.
+            DB.NotLoggedInPermabuffStatus.Remove(player);
+          }
         }
       }
-      else
+      catch (Exception ex)
       {
-        // Remove from the not logged in dict. No need to save.
-        DB.NotLoggedInPermabuffStatus.Remove(player);
+        TShock.Log.ConsoleError("[Permabuffs] Could not save {0}'s permabuff setting: {1}", player.Name, ex);
       }
       return;
     }
@@ -231,7 +247,7 @@ namespace Permabuffs
       }
       foreach (Item item in player.TPlayer.bank.item) // Piggy Bank
       {
-        if ((item.stack == 30) && (NameToBuffIDs.BuffIDs.ContainsKey(item.Name)))
+        if ((item.stack >= 30) && (NameToBuffIDs.BuffIDs.ContainsKey(item.Name)))
         {
           int buffID = NameToBuffIDs.BuffIDs[item.Name];
           player.SetBuff(buffID, ticks);
@@ -240,9 +256,23 @@ namespace Permabuffs
     }
 
     /// <Summary>
+    /// Called on every game tick. Refreshes everyone's buffs once 30 seconds
+    /// have passed since the last refresh.
+    /// </Summary>
+    private void OnGameUpdate(EventArgs args)
+    {
+      if (!since_last_refresh.IsRunning || since_last_refresh.Elapsed < refresh_interval)
+      {
+        return;
+      }
+      since_last_refresh.Restart();
+      BuffRefresher();
+    }
+
+    /// <Summary>
     /// Calls RefreshPlayerBuffs on each current player.
     /// </Summary>
-    private void BuffRefresher(object sender, ElapsedEventArgs args)
+    private void BuffRefresher()
     {
       // Remove broadcasts after testing
       foreach (TSPlayer player in TShock.Players)
@@ -259,13 +289,16 @@ namespace Permabuffs
     private void PBenable(CommandArgs args)
     {
       args.Player.SendInfoMessage("Permabuffs enabled.");
-      if (args.Player.IsLoggedIn)
+      lock (DB.Sync)
       {
-        DB.PermabuffStatus[args.Player.Account.ID] = true;
-      }
-      else
-      {
-        DB.NotLoggedInPermabuffStatus[args.Player] = true;
+        if (args.Player.IsLoggedIn)
+        {
+          DB.PermabuffStatus[args.Player.Account.ID] = true;
+        }
+        else
+        {
+          DB.NotLoggedInPermabuffStatus[args.Player] = true;
+        }
       }
       RefreshPlayerBuffs(args.Player);
       return;
@@ -278,13 +311,16 @@ namespace Permabuffs
     private void PBdisable(CommandArgs args)
     {
       args.Player.SendInfoMessage("Permabuffs disabled.");
-      if (args.Player.IsLoggedIn)
+      lock (DB.Sync)
       {
-        DB.PermabuffStatus[args.Player.Account.ID] = false;
-      }
-      else
-      {
-        DB.NotLoggedInPermabuffStatus[args.Player] = false;
+        if (args.Player.IsLoggedIn)
+        {
+          DB.PermabuffStatus[args.Player.Account.ID] = false;
+        }
+        else
+        {
+          DB.NotLoggedInPermabuffStatus[args.Player] = false;
+        }
       }
       return;
     }

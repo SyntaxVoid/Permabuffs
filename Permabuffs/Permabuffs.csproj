@@ -1,22 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net4.5</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>Permabuffs</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="OTAPI">
-      <HintPath>..\lib\OTAPI.dll</HintPath>
-    </Reference>
-    <Reference Include="TShockAPI">
-      <HintPath>..\lib\TShockAPI.dll</HintPath>
-    </Reference>
-    <Reference Include="TerrariaServer">
-      <HintPath>..\lib\TerrariaServer.exe</HintPath>
-    </Reference>
-    <Reference Include="Mono.Data.Sqlite">
-      <HintPath>..\lib\Mono.Data.Sqlite.dll</HintPath>
-    </Reference>
-    <Reference Include="MySql.Data">
-      <HintPath>..\lib\MySql.Data.dll</HintPath>
-    </Reference>
+    <PackageReference Include="TShock" Version="6.2.1" />
   </ItemGroup>
 </Project>
